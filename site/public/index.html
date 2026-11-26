@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Azure Dual-Track Web Publishing — Deployment Verification Payload</title>
+  <link rel="stylesheet" href="/css/styles.css">
+</head>
+<body>
+  <main class="container">
+    <header class="hero">
+      <p class="eyebrow">Azure Cloud Publishing Platform</p>
+      <h1>Deployment Verification Payload</h1>
+      <p class="subtitle">Minimal static verification endpoint proving Azure PaaS (App Service Blue/Green Slots) and IaaS (Hardened Windows Server IIS) deployments, TLS headers, health probes, and instant rollbacks.</p>
+    </header>
+
+    <section class="card" aria-labelledby="telemetry-heading">
+      <h2 id="telemetry-heading">Active Release Telemetry</h2>
+      <dl class="meta-grid" id="release-meta">
+        <div><dt>Health Probe</dt><dd id="meta-health">Checking /health.json...</dd></div>
+        <div><dt>Version</dt><dd id="meta-version">Loading...</dd></div>
+        <div><dt>Git SHA</dt><dd id="meta-sha">Loading...</dd></div>
+        <div><dt>Deployment Track</dt><dd id="meta-track">Loading...</dd></div>
+        <div><dt>Environment</dt><dd id="meta-env">Loading...</dd></div>
+        <div><dt>Built At (UTC)</dt><dd id="meta-built">Loading...</dd></div>
+      </dl>
+    </section>
+
+    <footer class="footer">
+      <span>Health Endpoint: <code>/healthz</code> &middot; Metadata: <code>/version.json</code></span>
+    </footer>
+  </main>
+  <script src="/js/status.js" defer></script>
+</body>
+</html>

@@ -1,0 +1,52 @@
+name: Deploy Track B (Azure IaaS Zero-RDP IIS)
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: "Target Azure environment"
+        required: true
+        type: choice
+        options:
+          - dev
+          - staging
+          - prod
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  deploy-iaas:
+    name: Package IIS ZIP, Deploy Bicep & Roll Out Zero-RDP (${{ inputs.environment }})
+    runs-on: ubuntu-latest
+    environment: ${{ inputs.environment }}-iaas
+    steps:
+      - uses: actions/checkout@v4
+      - name: Package deterministic IIS ZIP & SHA-256
+        run: bash ./scripts/package-iis.sh "${{ github.sha }}" "${{ github.sha }}" "${{ inputs.environment }}"
+      - name: Azure OIDC Login
+        uses: azure/login@v2
+        with:
+          client-id: ${{ vars.AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+      - name: Deploy Track B Bicep Infrastructure
+        env:
+          IAAS_ADMIN_PASSWORD: ${{ secrets.IAAS_ADMIN_PASSWORD }}
+        run: |
+          set -euo pipefail
+          : "${IAAS_ADMIN_PASSWORD:?Set IAAS_ADMIN_PASSWORD secret in GitHub Environment}"
+          az deployment group create \
+            --resource-group "${{ vars.AZURE_RESOURCE_GROUP }}" \
+            --template-file infra/bicep/main.bicep \
+            --parameters "infra/bicep/parameters/${{ inputs.environment }}.bicepparam" \
+            --parameters deploymentTrack=iaas iaasAdminPassword="$IAAS_ADMIN_PASSWORD"
+      - name: Upload Release Artifact to Private Storage & Invoke Zero-RDP Rollout
+        run: |
+          set -euo pipefail
+          STG="$(az deployment group show -g "${{ vars.AZURE_RESOURCE_GROUP }}" -n main --query properties.outputs.storageAccountName.value -o tsv)"
+          VM="$(az deployment group show -g "${{ vars.AZURE_RESOURCE_GROUP }}" -n main --query properties.outputs.iaasVmName.value -o tsv)"
+          SHA="$(awk '{print $1}' "dist/iis/site-${{ github.sha }}.zip.sha256")"
+          az storage blob upload --auth-mode login --account-name "$STG" --container-name iis-releases --name "site-${{ github.sha }}.zip" --file "dist/iis/site-${{ github.sha }}.zip" --overwrite
+          echo "Uploaded site-${{ github.sha }}.zip (SHA-256: ${SHA}) for zero-RDP deployment on VM '${VM}'."

@@ -1,0 +1,67 @@
+name: Deploy Track A (Azure PaaS Blue-Green)
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: "Target Azure environment"
+        required: true
+        type: choice
+        options:
+          - dev
+          - staging
+          - prod
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  deploy-paas:
+    name: Bicep What-If, Deploy & Slot Swap (${{ inputs.environment }})
+    runs-on: ubuntu-latest
+    environment: ${{ inputs.environment }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify Azure OIDC variables
+        env:
+          AZURE_CLIENT_ID: ${{ vars.AZURE_CLIENT_ID }}
+          AZURE_TENANT_ID: ${{ vars.AZURE_TENANT_ID }}
+          AZURE_SUBSCRIPTION_ID: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+          AZURE_RESOURCE_GROUP: ${{ vars.AZURE_RESOURCE_GROUP }}
+        run: |
+          : "${AZURE_CLIENT_ID:?Set AZURE_CLIENT_ID}"
+          : "${AZURE_TENANT_ID:?Set AZURE_TENANT_ID}"
+          : "${AZURE_SUBSCRIPTION_ID:?Set AZURE_SUBSCRIPTION_ID}"
+          : "${AZURE_RESOURCE_GROUP:?Set AZURE_RESOURCE_GROUP}"
+      - name: Azure OIDC Login (Zero Secrets)
+        uses: azure/login@v2
+        with:
+          client-id: ${{ vars.AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+      - name: Pre-Deploy Backup & Bicep Deploy
+        run: |
+          set -euo pipefail
+          bash ./scripts/backup-azure.sh "${{ vars.AZURE_RESOURCE_GROUP }}" || true
+          az deployment group what-if \
+            --resource-group "${{ vars.AZURE_RESOURCE_GROUP }}" \
+            --template-file infra/bicep/main.bicep \
+            --parameters "infra/bicep/parameters/${{ inputs.environment }}.bicepparam" \
+            --parameters imageTag="${{ github.sha }}"
+          az deployment group create \
+            --resource-group "${{ vars.AZURE_RESOURCE_GROUP }}" \
+            --template-file infra/bicep/main.bicep \
+            --parameters "infra/bicep/parameters/${{ inputs.environment }}.bicepparam" \
+            --parameters imageTag="${{ github.sha }}"
+      - name: Build, Push to ACR & Execute Blue-Green Slot Rollout
+        run: |
+          set -euo pipefail
+          ACR="$(az deployment group show -g "${{ vars.AZURE_RESOURCE_GROUP }}" -n main --query properties.outputs.acrLoginServer.value -o tsv)"
+          APP="$(az deployment group show -g "${{ vars.AZURE_RESOURCE_GROUP }}" -n main --query properties.outputs.paasWebAppName.value -o tsv)"
+          az acr login --name "${ACR%%.*}"
+          docker build --build-arg APP_VERSION="${{ github.sha }}" --build-arg GIT_SHA="${{ github.sha }}" --build-arg DEPLOYMENT_TRACK=paas --build-arg ENVIRONMENT="${{ inputs.environment }}" -t "${ACR}/azure-web-payload:${{ github.sha }}" ./site
+          docker push "${ACR}/azure-web-payload:${{ github.sha }}"
+          USE_SLOT="true"
+          if [ "${{ inputs.environment }}" = "dev" ]; then USE_SLOT="false"; fi
+          bash ./scripts/deploy-paas.sh "${{ vars.AZURE_RESOURCE_GROUP }}" "$APP" "$ACR" "${{ github.sha }}" "$USE_SLOT"

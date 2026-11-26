@@ -1,0 +1,16 @@
+# PSRule for Azure — Well-Architected Framework compliance baseline.
+include:
+  module:
+    - PSRule.Rules.Azure
+
+configuration:
+  AZURE_BICEP_FILE_EXPANSION: true
+  AZURE_BICEP_PARAMS_FILE_EXPANSION: true
+
+input:
+  pathIgnore:
+    - '.github/**'
+    - 'docs/**'
+    - 'site/**'
+    - 'scripts/**'
+    - 'tests/**'

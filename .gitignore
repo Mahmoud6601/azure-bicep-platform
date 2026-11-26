@@ -1,0 +1,12 @@
+.env
+.env.*
+!.env.example
+dist/
+nginx/ssl/
+backups/
+*.pfx
+*.pem
+*.key
+*.crt
+*.publishsettings
+.azure/
