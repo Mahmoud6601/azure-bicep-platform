@@ -1,4 +1,4 @@
-# Publishing a Website on Azure — Dual-Track IaC Platform (PaaS + IaaS)
+# azure-bicep-platform — Dual-Track Azure IaC Platform (PaaS + IaaS)
 
 A production-grade, zero-ClickOps **Azure Infrastructure-as-Code (Bicep)** platform demonstrating both enterprise web publishing architectures on Azure:
 - **Track A (PaaS — Recommended):** Linux Container **Azure App Service** with **Blue/Green Staging Deployment Slots**, VNet Integration, System-Assigned Managed Identity (`AcrPull`), private **Azure Container Registry**, **Key Vault (RBAC)**, **Log Analytics + Application Insights + Metric Alerts**, and 1-command slot swap-back rollback.
@@ -68,8 +68,8 @@ flowchart TD
 ## Quick Start — Local Preview & Verification (Zero Azure Account Required)
 
 ```bash
-git clone https://github.com/Mahmoud6601/Publishing-a-Website-on-Azure.git
-cd Publishing-a-Website-on-Azure
+git clone https://github.com/Mahmoud6601/azure-bicep-platform.git
+cd azure-bicep-platform
 
 cp .env.example .env
 ./scripts/generate-ssl.sh localhost
